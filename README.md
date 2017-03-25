@@ -4,14 +4,15 @@
 
 This is my Coursera Data Science Capstone project repository. The goal of this project was to build a Shiny application that will predict the next word of a short phrase for a mobile device user in order to save time on keystrokes. 
 
-It utilzes the following methods and techniques:
-- NLP
-- Corpus Creation
+It utilzes the following methods, techniques, and applications:
+- NLP (Natural Language Processing)
+- Corpus creation
+- Tokenization
 - N-Grams
-- Katz Backoff Algorithm
-- Shiny Application
+- Katz Backoff Algorithms
+- Shiny
 - WordCloud
-- RPresenter Slide Deck
+- RPresenter
 
 Shiny App Link: https://richflorez.shinyapps.io/WordPredApp/
 

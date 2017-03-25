@@ -18,7 +18,7 @@ It utilzes the following methods, techniques, and applications:
 
 Shiny App Link: https://richflorez.shinyapps.io/WordPredApp/
 
-RPresenter Pitch Deck Link: 
+RPresenter Pitch Deck Link: https://richflorez.github.io/DSCapstoneProject/WordPredAppPresentation-rpubs.html#/
 
 RPubs Milestone Report Link: http://rpubs.com/RichFlorez/251813
 

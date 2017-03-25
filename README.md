@@ -9,9 +9,13 @@ It utilzes the following methods and techniques:
 - Corpus Creation
 - N-Grams
 - Katz Backoff Algorithm
+- Shiny Application
 - WordCloud
+- RPresenter Slide Deck
 
 Shiny App Link: https://richflorez.shinyapps.io/WordPredApp/
+
+RPresenter Pitch Deck Link: 
 
 RPubs Milestone Report Link: http://rpubs.com/RichFlorez/251813
 

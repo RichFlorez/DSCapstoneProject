@@ -30,6 +30,7 @@ Corpus creation did not utilize:
 - Stem word removal
 - Stop word removal
 - Profanity word removal
+
 Stem and stopword removal only netted a modest decrease in the corpus size and therefore did not significantly improve the application's performance in terms of both speed and accuracy. Accuracy seemed to have been greatly affected by these two removal steps.
 
 Instead a small sample of the entire corpus was used, only 1% of the entire data set, and both the stopwords and stemwords were kept inthe sample corpus. This proved to be the best combination of speed and accuracy as tested by data file size and natural spoken language predictions respectively. 

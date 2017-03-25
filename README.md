@@ -9,7 +9,7 @@ It utilzes the following methods, techniques, and applications:
 - Corpus creation
 - Tokenization
 - N-Grams
-- Katz Backoff Algorithms
+- Stupid Back-off Algorithms
 - Shiny
 - WordCloud
 - RPresenter

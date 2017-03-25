@@ -1,0 +1,256 @@
+---
+title: "Data Science Capstone Week 2 Milestone Report"
+author: "Rich Florez"
+date: "2/16/2017"
+output: html_document
+---
+
+## Introduction
+
+This is a milestone report for a Natural Language Processing (NLP) prediction algorithm project. The goal of this project is to build a Shiny application that will predict the next word of a short phrase for a mobile device user in order to save time on keystrokes. 
+  
+This report summarizes the exploratory data analysis I've done to date on this project. It is broken down into the following segments of analysis:
+  
+- R Environment Set Up
+- Data Import
+- Data Summary/Statistics
+- Tidying Up the DataSets
+- Sample Data Set Creation
+- Corpus Creation
+- DataSet N-Gram Tokenization
+- Vizualizations
+  
+Lastly, I conclude this report by summarizing any additional factors to consider as well as the next steps to be taken for the project. 
+
+## R Environment Set Up
+
+The following R libraries are required for my exploratory analysis:
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+library(knitr) #to output to html
+library(dplyr) #for working with data frames
+library(stringi) #for string/text manipulation
+library(NLP) #NLP infrastructure, req for tm
+library(tm) #for text mining
+library(SnowballC) #for stemming
+library(slam) #algorithms for arrays and matrices
+library(ggplot2) #for bar plots
+library(RColorBrewer) #color palettes, req for wordcloud
+library(wordcloud) #neat vizualisation w/font size scaled by frequency
+
+```
+
+## Data Import
+
+The zipped data set can be accessed here: [Coursera-SwiftKey.zip](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) however, I've stored the data files locally for quicker access: 
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+blogs <- readLines("~/Documents/CourseraDataScienceSpecialization/10DataScienceCapstoneProject/final/en_US/en_US.blogs.txt", warn = FALSE, encoding = "UTF-8")
+
+news <- readLines("~/Documents/CourseraDataScienceSpecialization/10DataScienceCapstoneProject/final/en_US/en_US.news.txt", warn = FALSE, encoding = "UTF-8")
+
+twitter <- readLines("~/Documents/CourseraDataScienceSpecialization/10DataScienceCapstoneProject/final/en_US/en_US.twitter.txt", warn = FALSE, encoding = "UTF-8")
+
+```
+
+## Data Summary/Statistics
+
+I've used the stringi package here for a quick look at the basic contents and structure of the data files. Some interesting findings include:
+
+- 4,269,678 lines of text, none of which are empty lines
+- 102,516,506 words comprised of 450,262,399 word characters
+- 572,143,567 total characters of which 474,333,039 are not whitespaces
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+dataSummStats=data.frame(Dataset=c("Blogs","News","Twitter"),      
+  t(rbind(sapply(list(blogs,news,twitter),stri_stats_general)[c('Lines','LinesNEmpty','Chars','CharsNWhite'),],
+  Words=sapply(list(blogs,news,twitter),stri_stats_latex)[c('CharsWord','Words'),])))
+
+head(dataSummStats)
+
+```
+
+## Tidying Up the DataSets
+
+In this segment, I use the iconv() function across the three data files to convert the character vectors between encodings.
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+blogsCln <- iconv(blogs, "latin1", "ASCII", sub="")
+
+newsCln <- iconv(news, "latin1", "ASCII", sub="")
+
+twitterCln <- iconv(twitter, "latin1", "ASCII", sub="")
+
+```
+
+## Sample Data Set Creation
+
+Since the combined data sets result in over 4.25 million lines of text, a 1% sample will be utilized for the rest of the analysis to shorten the runtime as much as possible while still maintaining an adequate representation of the data. The sample size can easily be adjusted by replacing the value for the sampleSize variable. However, keep in mind that even slightly larger sample sizes, e.g. 5%, increase processing time significantly.
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+set.seed(1234) #use this to reproduce results
+
+sampleSize <- .01 #to more easily change sample size
+  
+sampleCombinedData <- c(sample(blogsCln, length(blogsCln) * sampleSize),
+                 sample(newsCln, length(newsCln) * sampleSize),
+                 sample(twitterCln, length(twitterCln) * sampleSize))
+
+#Check to see that sampleCombinedData is the sampleSize % of the original combined data
+
+lengthOriginalCombinedData <- (length(blogs)+length(news)+length(twitter))
+
+length(sampleCombinedData)
+
+lengthOriginalCombinedData * sampleSize
+
+```
+
+The above calculations merely serve as a simple sanity check of the sample size data versus the original data.
+
+## Corpus Creation
+
+I begin building the corpus by removing the following characters:
+
+- Numbers
+- Punctuation
+- Whitespaces
+
+I then transform all the characters to lower case to avoid any case sensitivity issues, transform the 1% sample corpus to a plain text document and illustrate the contents of the corpus with a Word Cloud plot as referenced in the "Text Mining Infrastructure in R" reading.
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+sampleDataCorpus <- VCorpus(VectorSource(sampleCombinedData))
+sampleDataCorpus <- tm_map(sampleDataCorpus, removeNumbers)
+sampleDataCorpus <- tm_map(sampleDataCorpus, removePunctuation)
+sampleDataCorpus <- tm_map(sampleDataCorpus, stripWhitespace)
+sampleDataCorpus <- tm_map(sampleDataCorpus, tolower)
+sampleDataCorpus <- tm_map(sampleDataCorpus, PlainTextDocument)
+
+set.seed(1234)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "Sample Corpus Word Cloud")
+wordcloud(sampleDataCorpus,max.words=200, random.order=FALSE, random.color=TRUE, rot.per=.1,
+          colors=brewer.pal(8, "Dark2"), ordered.colors=FALSE, use.r.layout=FALSE, fixed.asp=TRUE, main="Title")
+
+```
+
+## DataSet N-Gram Tokenization
+
+I used the NLP package's ngram() function along with the tm package's TermDocumentMatrix() function, which calculates the frequencies of the distinct n-gram terms, to create Uni, Bi, and Tri n-grams. As their names suggest, they contain 1, 2, and 3 word sets of the sample corpus data respectively. 
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+uniGramTokenizer <- function(x)
+    unlist(lapply(ngrams(words(x), 1), paste, collapse = " "), use.names = FALSE)
+
+tdmUniGram <- TermDocumentMatrix(sampleDataCorpus, control = list(tokenize = uniGramTokenizer))
+
+biGramTokenizer <- function(x)
+    unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+tdmBiGram <- TermDocumentMatrix(sampleDataCorpus, control = list(tokenize = biGramTokenizer))
+
+triGramTokenizer <- function(x)
+    unlist(lapply(ngrams(words(x), 3), paste, collapse = " "), use.names = FALSE)
+
+tdmTriGram <- TermDocumentMatrix(sampleDataCorpus, control = list(tokenize = triGramTokenizer))
+
+```
+
+## Visualizations
+
+Below I've provided both a frequency plot and a Word Cloud plot for each of the n-grams respectively. I chose the top 30 term values as sample respresentations of each of the n-grams. Of significant note is the prevalence of the so called stopwords. Words like the, and, in, to, is, etc. these shall need to be addressed in the final algorithm since they are common terms that will provide little value to the application. 
+
+```{r, echo=TRUE, error=FALSE, message=FALSE}
+
+freqUniGram <- rowapply_simple_triplet_matrix(tdmUniGram,sum)
+freqUniGram <- freqUniGram[order(freqUniGram,decreasing=TRUE)]
+top30UniGram <- as.data.frame(freqUniGram[1:30])
+top30UniGram <- data.frame(words = row.names(top30UniGram),top30UniGram)
+names(top30UniGram)[2] = "Frequency"
+row.names(top30UniGram) <- NULL
+ggplot(data=top30UniGram, aes(x=reorder(words, -Frequency), y=Frequency, fill=Frequency)) +
+  geom_bar(stat="identity") +  guides(fill=FALSE) + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(x = "Words", title = "UniGram Frequency Chart")
+
+set.seed(1234)
+df<-top30UniGram
+tb<-table(df$words)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "UniGram Word Cloud")
+wordcloud(names(tb), as.numeric(tb), scale=c(1.25,.25), min.freq=5, max.words=Inf, 
+          random.order=FALSE, random.color=TRUE, rot.per=.15,colors=brewer.pal(8, "Dark2"), 
+          ordered.colors=FALSE, use.r.layout=FALSE, fixed.asp=TRUE, main="Title")
+
+freqBiGram <- rowapply_simple_triplet_matrix(tdmBiGram,sum)
+freqBiGram <- freqBiGram[order(freqBiGram,decreasing=TRUE)]
+top30BiGram <- as.data.frame(freqBiGram[1:30])
+top30BiGram <- data.frame(words = row.names(top30BiGram),top30BiGram)
+names(top30BiGram)[2] = "Frequency"
+row.names(top30BiGram) <- NULL
+ggplot(data=top30BiGram, aes(x=reorder(words, -Frequency), y=Frequency, fill=Frequency)) + 
+  geom_bar(stat="identity") +  guides(fill=FALSE) + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(x = "Words", title = "BiGram Frequency Chart")
+
+set.seed(1234)
+df<-top30BiGram
+tb<-table(df$words)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "BiGram Word Cloud")
+wordcloud(names(tb), as.numeric(tb), scale=c(1.25,.25), min.freq=5, max.words=Inf,
+          random.order=FALSE, random.color=TRUE, rot.per=.15,colors=brewer.pal(8, "Dark2"),
+          ordered.colors=FALSE, use.r.layout=FALSE, fixed.asp=TRUE, main="Title")
+
+freqTriGram <- rowapply_simple_triplet_matrix(tdmTriGram,sum)
+freqTriGram <- freqTriGram[order(freqTriGram,decreasing=TRUE)]
+top30TriGram <- as.data.frame(freqTriGram[1:30])
+top30TriGram <- data.frame(words = row.names(top30TriGram),top30TriGram)
+names(top30TriGram)[2] = "Frequency"
+row.names(top30TriGram) <- NULL
+ggplot(data=top30TriGram, aes(x=reorder(words, -Frequency), y=Frequency, fill=Frequency)) +
+  geom_bar(stat="identity") +  guides(fill=FALSE) + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(x = "Words", title = "TriGram Frequency Chart")
+
+set.seed(1234)
+df<-top30TriGram
+tb<-table(df$words)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "TriGram Word Cloud")
+wordcloud(names(tb), as.numeric(tb), scale=c(1,.25), min.freq=5, max.words=Inf,
+          random.order=FALSE, random.color=TRUE, rot.per=.15,colors=brewer.pal(8, "Dark2"),
+          ordered.colors=FALSE, use.r.layout=FALSE, fixed.asp=TRUE, main="Title")
+
+```
+
+## Next Steps
+
+In conclusion, my exploratory analysis takes a look at the data, cleans it up, builds a sample corpus, tokenizes the corpus into three distinct term n-grams and creates visualizations of each n-gram.
+
+Next steps would involve:
+
+1. Further cleaning of the data
+  + Remove profane words
+  + Remove stop words
+  + A stemming process, which reduces certain words to their root value
+
+2. Performance enhancements since runtime is between 5-6 minutes
+  + Caching the data
+  + Parallel processing
+
+After looking into these issues I can then begin further developing the final algorithm and then ultimately building the Shiny application to demonstrate the algorithm's predictive capabilities by means of autocompleting a user's phrases.
+
+
